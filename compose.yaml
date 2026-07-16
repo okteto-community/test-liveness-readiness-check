@@ -1,0 +1,44 @@
+name: liveness-readiness-check
+
+services:
+  # ---------------------------------------------------------------------------
+  # app: the health-checked service. Its /status endpoint returns 503 forever
+  # (HEALTHY_AFTER=-1), so the readiness probe never passes and the pod stays
+  # `Running` but `0/1`.
+  # ---------------------------------------------------------------------------
+  app:
+    build: ./app
+    environment:
+      PORT: "8080"
+      HEALTH_PATH: /status
+      # -1  = never healthy  -> reproduces the stuck-Running / hang scenario
+      #  0  = healthy immediately
+      #  N  = unhealthy for the first N seconds (simulates a slow warm-up)
+      HEALTHY_AFTER: "-1"
+    ports:
+      - 8080:8080
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/status || exit 1"]
+      start_period: 5s
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      # THE TOGGLE that answers "before or after the retries?"
+      #   false -> readiness only: pod stays 0/1 forever, deploy can hang
+      #   true  -> readiness + liveness: pod restarts after `retries` failures,
+      #            then the deploy fast-fails. Keep readiness on as well.
+      x-okteto-liveness: true
+      x-okteto-readiness: true
+
+  # ---------------------------------------------------------------------------
+  # dependent: the service that waits on `app` being healthy.
+  # ---------------------------------------------------------------------------
+  dependent:
+    build: ./dependent
+    environment:
+      PORT: "8081"
+    ports:
+      - 8081:8081
+    depends_on:
+      app:
+        condition: service_healthy
