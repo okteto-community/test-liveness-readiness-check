@@ -27,7 +27,7 @@ services:
       #   false -> readiness only: pod stays 0/1 forever, deploy can hang
       #   true  -> readiness + liveness: pod restarts after `retries` failures,
       #            then the deploy fast-fails. Keep readiness on as well.
-      x-okteto-liveness: true
+      x-okteto-liveness: false
       x-okteto-readiness: true
 
   # ---------------------------------------------------------------------------
